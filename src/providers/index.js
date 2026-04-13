@@ -3,6 +3,7 @@ import { ghdProvider } from "./ghd.js";
 import { codexProvider } from "./codex.js";
 import { zedProvider } from "./zed.js";
 import { cursorProvider, cursorGlassProvider } from "./cursor.js";
+import { orchidsProvider } from "./orchids.js";
 
 export const providers = [
   t3Provider,
@@ -11,6 +12,7 @@ export const providers = [
   zedProvider,
   cursorProvider,
   cursorGlassProvider,
+  orchidsProvider,
 ];
 
 export function resolveProvider(name) {

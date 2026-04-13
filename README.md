@@ -9,5 +9,6 @@ Supports:
 - Codex
 - Cursor
 - Cursor-Glass
+- Orchids
 
 ![CLI](./CLI.png)
