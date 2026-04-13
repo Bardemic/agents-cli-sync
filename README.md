@@ -1,4 +1,4 @@
-# agents-cli-sync
+# ide-sync
 
 One CLI command to open any interface for coding from your active path.
 
@@ -28,7 +28,7 @@ npm install -g ide-open
 
 ```bash
 cd ~/repos/my-project
-ide [choice]      # cursor, t3, zed, ghd, codex, cursor-glass, orchids, vscode, opencode
+ide [choice]      # cursor, t3, zed, ghd, codex, cursor-glass, orchids, vscode, opencode, superset
 ide list          # show every supported provider
 ide --help
 ```
