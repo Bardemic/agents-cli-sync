@@ -2,7 +2,7 @@ import { t3Provider } from "./t3.js";
 import { ghdProvider } from "./ghd.js";
 import { codexProvider } from "./codex.js";
 import { zedProvider } from "./zed.js";
-import { cursorProvider, cursorGlassProvider } from "./cursor.js";
+import { cursorProvider } from "./cursor.js";
 import { orchidsProvider } from "./orchids.js";
 import { vscodeProvider } from "./vscode.js";
 import { opencodeProvider } from "./opencode.js";
@@ -14,7 +14,6 @@ export const providers = [
   codexProvider,
   zedProvider,
   cursorProvider,
-  cursorGlassProvider,
   orchidsProvider,
   vscodeProvider,
   opencodeProvider,

@@ -28,21 +28,10 @@ function resolveCursorCli() {
 export const cursorProvider = {
   name: "cursor",
   aliases: [],
-  description: "Cursor IDE (classic)",
+  description: "Cursor IDE",
 
   async open(workspaceRoot) {
-    openInCursor(workspaceRoot, ["--classic"]);
-    console.log(`Opened ${workspaceRoot} in Cursor (classic).`);
-  },
-};
-
-export const cursorGlassProvider = {
-  name: "cursor-glass",
-  aliases: ["cursorglass", "cursor-v3"],
-  description: "Cursor Glass (v3) — multi-workbench mode",
-
-  async open(workspaceRoot) {
-    openInCursor(workspaceRoot, ["--glass"]);
-    console.log(`Opened ${workspaceRoot} in Cursor Glass.`);
+    openInCursor(workspaceRoot);
+    console.log(`Opened ${workspaceRoot} in Cursor.`);
   },
 };
