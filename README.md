@@ -11,5 +11,6 @@ Supports:
 - Cursor-Glass
 - Orchids
 - Virtual Studio Code
+- OpenCode GUI
 
 ![CLI](./CLI.png)

@@ -5,6 +5,7 @@ import { zedProvider } from "./zed.js";
 import { cursorProvider, cursorGlassProvider } from "./cursor.js";
 import { orchidsProvider } from "./orchids.js";
 import { vscodeProvider } from "./vscode.js";
+import { opencodeProvider } from "./opencode.js";
 
 export const providers = [
   t3Provider,
@@ -15,6 +16,7 @@ export const providers = [
   cursorGlassProvider,
   orchidsProvider,
   vscodeProvider,
+  opencodeProvider,
 ];
 
 export function resolveProvider(name) {
