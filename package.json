@@ -44,6 +44,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Bardemic/agents-cli-sync.git"
+    "url": "git+https://github.com/Bardemic/ide-sync.git"
   }
 }
