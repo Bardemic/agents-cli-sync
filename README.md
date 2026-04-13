@@ -7,5 +7,7 @@ Supports:
 - Zed
 - Github Desktop
 - Codex
+- Cursor
+- Cursor-Glass
 
 ![CLI](./CLI.png)
