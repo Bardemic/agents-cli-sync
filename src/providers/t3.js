@@ -7,7 +7,6 @@ import Database from "better-sqlite3";
 
 const APP_NAME_MAC = "T3 Code (Alpha)";
 const DEFAULT_MODEL_SELECTION = { provider: "codex", model: "gpt-5.4" };
-const DEFAULT_RUNTIME_MODE = "full-access";
 
 export const t3Provider = {
   name: "t3",
@@ -20,20 +19,19 @@ export const t3Provider = {
     }
 
     const runtime = readServerRuntime();
-    const cookieInfo = readSessionCookie(runtime?.port);
-
-    if (runtime && cookieInfo) {
-      try {
-        await openViaHttp(runtime, cookieInfo, workspaceRoot);
-        launchDesktopApp();
-        console.log(`Opened ${workspaceRoot} in T3 Code.`);
-        return;
-      } catch (err) {
-        console.warn(`T3 Code HTTP API failed (${err.message}). Falling back to direct DB insert.`);
-      }
+    if (!runtime) {
+      throw new Error("T3 Code server runtime not found. Launch T3 Code before using ide t3.");
     }
 
-    upsertProjectViaSqlite(workspaceRoot);
+    const sessionCookieName = await readSessionCookieName(runtime);
+    const cookie = readSessionCookie(sessionCookieName);
+    if (!cookie) {
+      throw new Error(
+        `T3 Code session cookie ${sessionCookieName} not found. Sign in to T3 Code before using ide t3.`,
+      );
+    }
+
+    await openViaHttp(runtime, cookie, workspaceRoot);
     launchDesktopApp();
     console.log(`Opened ${workspaceRoot} in T3 Code.`);
   },
@@ -52,42 +50,45 @@ function readServerRuntime() {
   }
 }
 
-function readSessionCookie(port) {
+async function readSessionCookieName(runtime) {
+  const origin = runtime.origin || `http://${runtime.host}:${runtime.port}`;
+  const sessionState = await fetchJson(`${origin}/api/auth/session`, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+  const cookieName = sessionState?.auth?.sessionCookieName;
+  if (typeof cookieName !== "string" || cookieName.trim().length === 0) {
+    throw new Error("T3 Code auth session endpoint did not include a session cookie name.");
+  }
+  return cookieName;
+}
+
+function readSessionCookie(cookieName) {
   const candidates = [
     path.join(os.homedir(), "Library/Application Support/t3code/Cookies"),
     path.join(os.homedir(), ".config/t3code/Cookies"),
   ];
-  // In desktop mode the server uses a port-suffixed cookie name (e.g. t3_session_3773).
-  // Try the port-specific name first, then fall back to the generic name.
-  const cookieNames = port
-    ? [`t3_session_${port}`, "t3_session"]
-    : ["t3_session"];
   for (const dbPath of candidates) {
     if (!existsSync(dbPath)) continue;
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true });
     try {
-      const db = new Database(dbPath, { readonly: true, fileMustExist: true });
-      try {
-        for (const name of cookieNames) {
-          const row = db
-            .prepare("SELECT value FROM cookies WHERE name = ? LIMIT 1")
-            .get(name);
-          if (row?.value) return { cookieName: name, cookieValue: row.value };
-        }
-      } finally {
-        db.close();
-      }
-    } catch {
-      // cookie store may be locked; fall through
+      const row = db
+        .prepare("SELECT value FROM cookies WHERE name = ? LIMIT 1")
+        .get(cookieName);
+      if (row?.value) return { name: cookieName, value: row.value };
+    } finally {
+      db.close();
     }
   }
   return null;
 }
 
-async function openViaHttp(runtime, cookieInfo, workspaceRoot) {
+async function openViaHttp(runtime, cookie, workspaceRoot) {
   const origin = runtime.origin || `http://${runtime.host}:${runtime.port}`;
   const headers = {
     "Content-Type": "application/json",
-    Cookie: `${cookieInfo.cookieName}=${cookieInfo.cookieValue}`,
+    Cookie: `${cookie.name}=${cookie.value}`,
     Accept: "application/json",
   };
 
@@ -111,22 +112,7 @@ async function openViaHttp(runtime, cookieInfo, workspaceRoot) {
     });
   }
 
-  const threadId = randomUUID();
-  await dispatchCommand(origin, headers, {
-    type: "thread.create",
-    commandId: randomUUID(),
-    threadId,
-    projectId,
-    title: "New chat",
-    modelSelection: existing?.defaultModelSelection ?? DEFAULT_MODEL_SELECTION,
-    runtimeMode: DEFAULT_RUNTIME_MODE,
-    interactionMode: "default",
-    branch: null,
-    worktreePath: null,
-    createdAt: new Date().toISOString(),
-  });
-
-  return { projectId, threadId, projectCreated };
+  return { projectId, projectCreated };
 }
 
 async function fetchJson(url, init) {
@@ -144,75 +130,6 @@ async function dispatchCommand(origin, headers, command) {
     headers,
     body: JSON.stringify(command),
   });
-}
-
-function upsertProjectViaSqlite(workspaceRoot) {
-  const dbPath = path.join(
-    process.env.T3CODE_HOME || path.join(os.homedir(), ".t3"),
-    "userdata",
-    "state.sqlite",
-  );
-  if (!existsSync(dbPath)) {
-    throw new Error(
-      `T3 Code state not found at ${dbPath}. Launch T3 Code at least once before using this command.`,
-    );
-  }
-
-  const db = new Database(dbPath);
-  try {
-    db.pragma("journal_mode = WAL");
-
-    const existing = db
-      .prepare(
-        `SELECT project_id FROM projection_projects
-         WHERE workspace_root = ? AND deleted_at IS NULL
-         LIMIT 1`,
-      )
-      .get(workspaceRoot);
-
-    if (existing) {
-      return { inserted: false, projectId: existing.project_id };
-    }
-
-    const projectId = randomUUID();
-    const nowIso = new Date().toISOString();
-    const title = path.basename(workspaceRoot) || workspaceRoot;
-
-    const payload = {
-      projectId,
-      title,
-      workspaceRoot,
-      scripts: [],
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      defaultModelSelection: null,
-    };
-
-    const insertEvent = db.prepare(
-      `INSERT INTO orchestration_events (
-         event_id, aggregate_kind, stream_id, stream_version,
-         event_type, occurred_at, command_id, causation_event_id,
-         correlation_id, actor_kind, payload_json, metadata_json
-       ) VALUES (?, 'project', ?, 1, 'project.created', ?, NULL, NULL, NULL, 'client', ?, '{}')`,
-    );
-
-    const insertProjection = db.prepare(
-      `INSERT INTO projection_projects (
-         project_id, title, workspace_root,
-         default_model_selection_json, scripts_json,
-         created_at, updated_at, deleted_at
-       ) VALUES (?, ?, ?, NULL, '[]', ?, ?, NULL)`,
-    );
-
-    db.transaction(() => {
-      insertEvent.run(randomUUID(), projectId, nowIso, JSON.stringify(payload));
-      insertProjection.run(projectId, title, workspaceRoot, nowIso, nowIso);
-    })();
-
-    return { inserted: true, projectId };
-  } finally {
-    db.close();
-  }
 }
 
 function launchDesktopApp() {
